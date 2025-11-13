@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Outfit Maker</title>
+    <link href="/static/style.css" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>Outfit Maker</h1>
+            <p>Create and save your perfect outfits</p>
+        </header>
+
+        {% with messages = get_flashed_messages() %}
+            {% if messages %}
+                <div class="flash-messages">
+                    {% for message in messages %}
+                        <div class="flash">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <main>
+            {% block main %}{% endblock %}
+        </main>
+    </div>
+    <script>
+        class OutfitMaker {
+            constructor() {
+                this.canvas = document.getElementById('outfitCanvas');
+                this.itemCount = document.getElementById('itemCount');
+                this.clearBtn = document.getElementById('clearCanvas');
+                this.currentItems = [];
+                this.categoryCounts = {
+                    upper: 0,
+                    lower: 0,
+                    shoes: 0,
+                    accessories: 0
+                };
+
+                this.isDragging = false;
+                this.isResizing = false;
+                this.currentElement = null;
+                this.canvasRect = null;
+
+                this.init();
+            }
+
+            init() {
+                this.setupEventListeners();
+                this.updateItemCount();
+                this.updateCanvasRect();
+            }
+
+            updateCanvasRect() {
+                this.canvasRect = this.canvas.getBoundingClientRect();
+            }
+
+            setupEventListeners() {
+                document.querySelectorAll('.item-thumb').forEach(thumb => {
+                    thumb.addEventListener('click', (e) => {
+                        this.addItemToCanvas(
+                            thumb.dataset.id,
+                            thumb.dataset.category,
+                            thumb.querySelector('img').src,
+                            thumb.querySelector('span').textContent
+                        );
+                    });
+                });
+
+                this.clearBtn.addEventListener('click', () => {
+                    this.clearCanvas();
+                });
+
+                this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+                document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+                document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+                window.addEventListener('resize', () => {
+                    this.updateCanvasRect();
+                });
+            }
+
+            addItemToCanvas(itemId, category, imageSrc, name) {
+                if (category === 'upper' && this.categoryCounts.upper >= 5) {
+                    alert('Maximum 5 upper body items allowed');
+                    return;
+                }
+
+                const itemDiv = document.createElement('div');
+                itemDiv.className = 'draggable-item';
+                itemDiv.dataset.id = itemId;
+                itemDiv.dataset.category = category;
+
+                const x = 50 + (Math.random() * 200);
+                const y = 50 + (Math.random() * 200);
+
+                itemDiv.style.left = x + 'px';
+                itemDiv.style.top = y + 'px';
+                itemDiv.style.width = '150px';
+                itemDiv.style.height = '150px';
+                itemDiv.style.zIndex = this.currentItems.length + 1;
+
+                const img = new Image();
+                img.src = imageSrc;
+                img.alt = name;
+                img.draggable = false;
+
+                const resizeHandle = document.createElement('div');
+                resizeHandle.className = 'resize-handle';
+
+                itemDiv.appendChild(img);
+                itemDiv.appendChild(resizeHandle);
+
+                this.canvas.appendChild(itemDiv);
+
+                const itemData = {
+                    id: itemId,
+                    category: category,
+                    element: itemDiv,
+                    x: x,
+                    y: y,
+                    width: 150,
+                    height: 150,
+                    zIndex: this.currentItems.length + 1
+                };
+
+                this.currentItems.push(itemData);
+
+                this.categoryCounts[category]++;
+                this.updateItemCount();
+
+                return itemData;
+            }
+
+            handleMouseDown(e) {
+                e.preventDefault();
+                const target = e.target;
+                const itemElement = target.closest('.draggable-item');
+
+                if (!itemElement) return;
+
+                this.updateCanvasRect();
+
+                if (target.classList.contains('resize-handle')) {
+                    this.startResizing(itemElement, e);
+                } else {
+                    this.startDragging(itemElement, e);
+                }
+
+                this.bringToFront(itemElement);
+            }
+
+            startDragging(element, e) {
+                this.isDragging = true;
+                this.currentElement = element;
+
+                const rect = element.getBoundingClientRect();
+                this.offsetX = e.clientX - rect.left;
+                this.offsetY = e.clientY - rect.top;
+
+                element.style.cursor = 'grabbing';
+                element.style.transition = 'none';
+            }
+
+            startResizing(element, e) {
+                this.isResizing = true;
+                this.currentElement = element;
+
+                const rect = element.getBoundingClientRect();
+                this.startWidth = rect.width;
+                this.startHeight = rect.height;
+                this.startX = e.clientX;
+                this.startY = e.clientY;
+
+                element.style.transition = 'none'; resize
+                e.stopPropagation();
+            }
+
+            handleMouseMove(e) {
+                if (this.isDragging && this.currentElement) {
+                    this.dragItem(e);
+                } else if (this.isResizing && this.currentElement) {
+                    this.resizeItem(e);
+                }
+            }
+
+            dragItem(e) {
+                let x = e.clientX - this.canvasRect.left - this.offsetX;
+                let y = e.clientY - this.canvasRect.top - this.offsetY;
+
+                const maxX = this.canvasRect.width - this.currentElement.offsetWidth;
+                const maxY = this.canvasRect.height - this.currentElement.offsetHeight;
+
+                x = Math.max(0, Math.min(x, maxX));
+                y = Math.max(0, Math.min(y, maxY));
+
+                this.currentElement.style.left = x + 'px';
+                this.currentElement.style.top = y + 'px';
+
+                const item = this.currentItems.find(item => item.element === this.currentElement);
+                if (item) {
+                    item.x = x;
+                    item.y = y;
+                }
+            }
+
+            resizeItem(e) {
+                const deltaX = e.clientX - this.startX;
+                const deltaY = e.clientY - this.startY;
+
+                const newWidth = Math.max(50, this.startWidth + deltaX);
+                const newHeight = Math.max(50, this.startHeight + deltaY);
+
+                this.currentElement.style.width = newWidth + 'px';
+                this.currentElement.style.height = newHeight + 'px';
+
+                const item = this.currentItems.find(item => item.element === this.currentElement);
+                if (item) {
+                    item.width = newWidth;
+                    item.height = newHeight;
+                }
+            }
+
+            handleMouseUp(e) {
+                if (this.isDragging || this.isResizing) {
+                    if (this.currentElement) {
+                        this.currentElement.style.transition = 'all 0.3s ease';
+                        this.currentElement.style.cursor = 'grab';
+                    }
+
+                    this.isDragging = false;
+                    this.isResizing = false;
+                    this.currentElement = null;
+                }
+            }
+
+            bringToFront(element) {
+                const maxZ = Math.max(...this.currentItems.map(item => item.zIndex));
+
+                const item = this.currentItems.find(item => item.element === element);
+                if (item) {
+                    item.zIndex = maxZ + 1;
+                    element.style.zIndex = maxZ + 1;
+                }
+            }
+
+            clearCanvas() {
+                while (this.canvas.firstChild) {
+                    this.canvas.removeChild(this.canvas.firstChild);
+                }
+
+                this.currentItems = [];
+                this.categoryCounts = {
+                    upper: 0,
+                    lower: 0,
+                    shoes: 0,
+                    accessories: 0
+                };
+
+                this.updateItemCount();
+            }
+
+            updateItemCount() {
+                const total = this.currentItems.length;
+                this.itemCount.textContent = total;
+            }
+        }
+
+        document.addEventListener('DOMContentLoaded', () => {
+            window.outfitMaker = new OutfitMaker();
+        });
+    </script>
+</body>
+</html>

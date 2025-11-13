@@ -1,0 +1,16 @@
+{% extends "layout.html" %}
+
+{% block main %}
+<div class="apology-container">
+    <div class="apology-card">
+        <h1 class="apology-code">{{ top }}</h1>
+        <div class="apology-message">
+            <p>{{ bottom }}</p>
+        </div>
+        <div class="apology-actions">
+            <a href="/" class="btn btn-primary">Go Back Home</a>
+            <button onclick="history.back()" class="btn btn-secondary">Go Back</button>
+        </div>
+    </div>
+</div>
+{% endblock %}

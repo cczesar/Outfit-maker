@@ -1,0 +1,612 @@
+{% extends "layout.html" %}
+
+{% block main %}
+<div class="app-grid">
+    <div class="left-panel">
+        <section class="upload-section">
+            <h2>Add Clothing Items</h2>
+
+            <form action="/upload" method="post" enctype="multipart/form-data" class="upload-form">
+                <div class="form-group">
+                    <label>Category:</label>
+                    <select name="category" required>
+                        <option value="upper">Upper Body</option>
+                        <option value="lower">Lower Body</option>
+                        <option value="shoes">Shoes</option>
+                        <option value="accessories">Accessories</option>
+                    </select>
+                </div>
+
+                <div class="form-group">
+                    <label>Item Name:</label>
+                    <input type="text" name="name" placeholder="Items" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Choose File:</label>
+                    <input type="file" name="file" accept="image/*" required>
+                </div>
+
+                <button type="submit">Upload Item</button>
+            </form>
+        </section>
+
+        <div class="delete-a-items">
+            <h3></h3>
+            <form action="/delete_all_items" method="post" class="delete-all-form">
+                <button type="submit" class="btn-delete-all" onclick="return confirm('Are you sure you want to delete all items??')">
+                    Delete ALL items
+                </button>
+            </form>
+        </div>
+
+        <div class="items-section">
+            <div class="category-items">
+                <h3>Upper Body</h3>
+                <div class="item-grid">
+                    {% for item in items_by_category['upper'] %}
+                    <div class="item-thumb" data-id="{{ item.id }}" data-category="upper">
+                        <img src="{{ url_for('static', filename=item.image_path) }}" alt="{{ item.name }}">
+                        <span>{{ item.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="category-items">
+                <h3>Lower Body</h3>
+                <div class="item-grid">
+                    {% for item in items_by_category['lower'] %}
+                    <div class="item-thumb" data-id="{{ item.id }}" data-category="lower">
+                        <img src="{{ url_for('static', filename=item.image_path) }}" alt="{{ item.name }}">
+                        <span>{{ item.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="category-items">
+                <h3>Shoes</h3>
+                <div class="item-grid">
+                    {% for item in items_by_category['shoes'] %}
+                    <div class="item-thumb" data-id="{{ item.id }}" data-category="shoes">
+                        <img src="{{ url_for('static', filename=item.image_path) }}" alt="{{ item.name }}">
+                        <span>{{ item.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+
+            <div class="category-items">
+                <h3>Accessories</h3>
+                <div class="item-grid">
+                    {% for item in items_by_category['accessories'] %}
+                    <div class="item-thumb" data-id="{{ item.id }}" data-category="accessories">
+                        <img src="{{ url_for('static', filename=item.image_path) }}" alt="{{ item.name }}">
+                        <span>{{ item.name }}</span>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="right-panel">
+        <section class="outfit-controls">
+            <h2>Save Outfit</h2>
+            <form action="/save_outfit" method="post" class="save-form" id="saveOutfitForm">
+                <input type="text" name="name" placeholder="Outfit name" required id="outfitName">
+                <input type="hidden" name="canvas_image" id="canvasImage">
+                <button type="submit">Save Outfit</button>
+                <button type="button" id="clearCanvas">Clear Canvas</button>
+            </form>
+        </section>
+
+        <section class="outfit-canvas-section">
+            <h2>Outfit Canvas</h2>
+            <div class="canvas-info">
+                <span>Items: <span id="itemCount">0</span></span>
+                <span>Drag to move, use corners to resize</span>
+            </div>
+            <div class="outfit-canvas" id="outfitCanvas">
+            </div>
+        </section>
+
+        <section class="saved-outfits">
+            <h2>My Outfits ({{ outfits|length }})</h2>
+            {% if outfits %}
+            <div class="outfits-list">
+                {% for outfit in outfits %}
+                <div class="outfit-card">
+                    <div class="outfit-info">
+                        <h3>{{ outfit.name }}</h3>
+                        <div class="outfit-preview">
+                            {% if outfit.canvas_image %}
+                            <img src="{{ outfit.canvas_image }}" alt="{{ outfit.name }} preview" class="outfit-thumbnail">
+                            {% else %}
+                            <div class="no-preview">No preview available</div>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="outfit-actions">
+                        <button type="button" class="btn btn-view" onclick="showOutfitPreview('{{ outfit.name }}', '{{ outfit.canvas_image }}')">
+                            Show Preview
+                        </button>
+                        <form action="/delete_outfit/{{ outfit.id }}" method="post" class="delete-form">
+                            <button type="submit" class="btn btn-delete" onclick="return confirm('Delete {{ outfit.name }}?')">Delete</button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+            {% else %}
+            <p class="no-outfits">No outfits saved yet</p>
+            {% endif %}
+        </section>
+
+        <div id="outfitModal" class="modal">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h2 id="modalTitle">Outfit Preview</h2>
+                    <span class="close">&times;</span>
+                </div>
+                <div class="modal-body">
+                    <div class="outfit-preview-container">
+                        <img id="modalPreviewImage" src="" alt="Outfit Preview" class="preview-image">
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+    .modal {
+        display: none;
+        position: fixed;
+        z-index: 1000;
+        left: 0;
+        top: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0,0,0,0.8);
+    }
+
+    .modal-content {
+        background-color: white;
+        margin: 2% auto;
+        padding: 0;
+        border-radius: 15px;
+        width: 90%;
+        max-width: 900px;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        max-height: 90vh;
+        overflow: hidden;
+    }
+
+    .modal-header {
+        background: linear-gradient(135deg, #3498db, #2980b9);
+        color: white;
+        padding: 20px;
+        border-radius: 15px 15px 0 0;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+    }
+
+    .modal-header h2 {
+        margin: 0;
+        font-size: 1.5em;
+    }
+
+    .close {
+        color: white;
+        font-size: 28px;
+        font-weight: bold;
+        cursor: pointer;
+        padding: 5px;
+    }
+
+    .close:hover {
+        color: #ecf0f1;
+        background: rgba(255,255,255,0.1);
+        border-radius: 50%;
+    }
+
+    .modal-body {
+        padding: 0;
+    }
+
+    .outfit-preview-container {
+        width: 100%;
+        height: 70vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        background: #f8f9fa;
+    }
+
+    .preview-image {
+        max-width: 100%;
+        max-height: 100%;
+        object-fit: contain;
+        border-radius: 0 0 15px 15px;
+    }
+
+    .outfit-thumbnail {
+        width: 100%;
+        height: 120px;
+        object-fit: cover;
+        border-radius: 8px;
+        border: 2px solid #ecf0f1;
+        margin-top: 10px;
+    }
+
+    .no-preview {
+        width: 100%;
+        height: 120px;
+        background: #f8f9fa;
+        border: 2px dashed #bdc3c7;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: #7f8c8d;
+        font-style: italic;
+        margin-top: 10px;
+    }
+</style>
+
+<script>
+    function captureCanvas() {
+        const canvas = document.getElementById('outfitCanvas');
+        const items = canvas.querySelectorAll('.draggable-item');
+
+        if (items.length === 0) {
+            return null;
+        }
+
+        const tempCanvas = document.createElement('canvas');
+        const tempCtx = tempCanvas.getContext('2d');
+
+        tempCanvas.width = canvas.offsetWidth;
+        tempCanvas.height = canvas.offsetHeight;
+
+        tempCtx.fillStyle = '#ecf0f1';
+        tempCtx.fillRect(0, 0, tempCanvas.width, tempCanvas.height);
+
+        const size = 20;
+        tempCtx.fillStyle = '#ffffff';
+        for (let y = 0; y < tempCanvas.height; y += size * 2) {
+            for (let x = 0; x < tempCanvas.width; x += size * 2) {
+                tempCtx.fillRect(x, y, size, size);
+                tempCtx.fillRect(x + size, y + size, size, size);
+            }
+        }
+
+        items.forEach(item => {
+            const img = item.querySelector('img');
+            const rect = item.getBoundingClientRect();
+            const canvasRect = canvas.getBoundingClientRect();
+
+            const x = rect.left - canvasRect.left;
+            const y = rect.top - canvasRect.top;
+            const width = rect.width;
+            const height = rect.height;
+
+            tempCtx.save();
+            tempCtx.shadowColor = 'rgba(0,0,0,0.3)';
+            tempCtx.shadowBlur = 10;
+            tempCtx.shadowOffsetX = 2;
+            tempCtx.shadowOffsetY = 2;
+
+            tempCtx.fillStyle = 'white';
+            tempCtx.fillRect(x, y, width, height);
+
+            tempCtx.drawImage(img, x, y, width, height);
+
+            tempCtx.restore();
+
+            tempCtx.strokeStyle = '#3498db';
+            tempCtx.lineWidth = 2;
+            tempCtx.strokeRect(x, y, width, height);
+        });
+
+        return tempCanvas.toDataURL('image/png');
+    }
+
+    function showOutfitPreview(outfitName, canvasImage) {
+        const modal = document.getElementById('outfitModal');
+        const modalTitle = document.getElementById('modalTitle');
+        const modalPreviewImage = document.getElementById('modalPreviewImage');
+
+        modalTitle.textContent = outfitName;
+
+        if (canvasImage) {
+            modalPreviewImage.src = canvasImage;
+            modalPreviewImage.alt = `${outfitName} preview`;
+        } else {
+            modalPreviewImage.src = '';
+            modalPreviewImage.alt = 'No preview available';
+        }
+
+        modal.style.display = 'block';
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const modal = document.getElementById('outfitModal');
+        const closeBtn = document.querySelector('.close');
+
+        closeBtn.onclick = function() {
+            modal.style.display = 'none';
+        }
+
+        window.onclick = function(event) {
+            if (event.target == modal) {
+                modal.style.display = 'none';
+            }
+        }
+    });
+
+    class OutfitMaker {
+        constructor() {
+            this.canvas = document.getElementById('outfitCanvas');
+            this.itemCount = document.getElementById('itemCount');
+            this.clearBtn = document.getElementById('clearCanvas');
+            this.saveForm = document.getElementById('saveOutfitForm');
+            this.canvasImageInput = document.getElementById('canvasImage');
+            this.currentItems = [];
+            this.categoryCounts = {
+                upper: 0,
+                lower: 0,
+                shoes: 0,
+                accessories: 0
+            };
+
+            this.isDragging = false;
+            this.isResizing = false;
+            this.currentElement = null;
+            this.canvasRect = null;
+
+            this.init();
+        }
+
+        init() {
+            this.setupEventListeners();
+            this.updateItemCount();
+            this.updateCanvasRect();
+        }
+
+        updateCanvasRect() {
+            this.canvasRect = this.canvas.getBoundingClientRect();
+        }
+
+        setupEventListeners() {
+            document.querySelectorAll('.item-thumb').forEach(thumb => {
+                thumb.addEventListener('click', (e) => {
+                    this.addItemToCanvas(
+                        thumb.dataset.id,
+                        thumb.dataset.category,
+                        thumb.querySelector('img').src,
+                        thumb.querySelector('span').textContent
+                    );
+                });
+            });
+
+            this.clearBtn.addEventListener('click', () => {
+                this.clearCanvas();
+            });
+
+            this.saveForm.addEventListener('submit', (e) => {
+                const outfitName = document.getElementById('outfitName').value;
+                if (!outfitName.trim()) {
+                    e.preventDefault();
+                    alert('Please enter an outfit name');
+                    return;
+                }
+
+                const canvasImage = captureCanvas();
+                if (canvasImage) {
+                    this.canvasImageInput.value = canvasImage;
+                }
+            });
+
+            this.canvas.addEventListener('mousedown', (e) => this.handleMouseDown(e));
+            document.addEventListener('mousemove', (e) => this.handleMouseMove(e));
+            document.addEventListener('mouseup', (e) => this.handleMouseUp(e));
+
+            window.addEventListener('resize', () => {
+                this.updateCanvasRect();
+            });
+        }
+
+        addItemToCanvas(itemId, category, imageSrc, name) {
+            if (category === 'upper' && this.categoryCounts.upper >= 5) {
+                alert('Maximum 5 upper body items allowed');
+                return;
+            }
+
+            const itemDiv = document.createElement('div');
+            itemDiv.className = 'draggable-item';
+            itemDiv.dataset.id = itemId;
+            itemDiv.dataset.category = category;
+
+            const x = 50 + (Math.random() * 200);
+            const y = 50 + (Math.random() * 200);
+
+            itemDiv.style.left = x + 'px';
+            itemDiv.style.top = y + 'px';
+            itemDiv.style.width = '150px';
+            itemDiv.style.height = '150px';
+            itemDiv.style.zIndex = this.currentItems.length + 1;
+
+            const img = new Image();
+            img.src = imageSrc;
+            img.alt = name;
+            img.draggable = false;
+
+            const resizeHandle = document.createElement('div');
+            resizeHandle.className = 'resize-handle';
+
+            itemDiv.appendChild(img);
+            itemDiv.appendChild(resizeHandle);
+
+            this.canvas.appendChild(itemDiv);
+
+            const itemData = {
+                id: itemId,
+                category: category,
+                element: itemDiv,
+                x: x,
+                y: y,
+                width: 150,
+                height: 150,
+                zIndex: this.currentItems.length + 1
+            };
+
+            this.currentItems.push(itemData);
+            this.categoryCounts[category]++;
+            this.updateItemCount();
+
+            return itemData;
+        }
+
+        handleMouseDown(e) {
+            e.preventDefault();
+            const target = e.target;
+            const itemElement = target.closest('.draggable-item');
+
+            if (!itemElement) return;
+
+            this.updateCanvasRect();
+
+            if (target.classList.contains('resize-handle')) {
+                this.startResizing(itemElement, e);
+            } else {
+                this.startDragging(itemElement, e);
+            }
+
+            this.bringToFront(itemElement);
+        }
+
+        startDragging(element, e) {
+            this.isDragging = true;
+            this.currentElement = element;
+
+            const rect = element.getBoundingClientRect();
+            this.offsetX = e.clientX - rect.left;
+            this.offsetY = e.clientY - rect.top;
+
+            element.style.cursor = 'grabbing';
+            element.style.transition = 'none';
+        }
+
+        startResizing(element, e) {
+            this.isResizing = true;
+            this.currentElement = element;
+
+            const rect = element.getBoundingClientRect();
+            this.startWidth = rect.width;
+            this.startHeight = rect.height;
+            this.startX = e.clientX;
+            this.startY = e.clientY;
+
+            element.style.transition = 'none';
+            e.stopPropagation();
+        }
+
+        handleMouseMove(e) {
+            if (this.isDragging && this.currentElement) {
+                this.dragItem(e);
+            } else if (this.isResizing && this.currentElement) {
+                this.resizeItem(e);
+            }
+        }
+
+        dragItem(e) {
+            let x = e.clientX - this.canvasRect.left - this.offsetX;
+            let y = e.clientY - this.canvasRect.top - this.offsetY;
+
+            const maxX = this.canvasRect.width - this.currentElement.offsetWidth;
+            const maxY = this.canvasRect.height - this.currentElement.offsetHeight;
+
+            x = Math.max(0, Math.min(x, maxX));
+            y = Math.max(0, Math.min(y, maxY));
+
+            this.currentElement.style.left = x + 'px';
+            this.currentElement.style.top = y + 'px';
+
+            const item = this.currentItems.find(item => item.element === this.currentElement);
+            if (item) {
+                item.x = x;
+                item.y = y;
+            }
+        }
+
+        resizeItem(e) {
+            const deltaX = e.clientX - this.startX;
+            const deltaY = e.clientY - this.startY;
+
+            const newWidth = Math.max(50, this.startWidth + deltaX);
+            const newHeight = Math.max(50, this.startHeight + deltaY);
+
+            this.currentElement.style.width = newWidth + 'px';
+            this.currentElement.style.height = newHeight + 'px';
+
+            const item = this.currentItems.find(item => item.element === this.currentElement);
+            if (item) {
+                item.width = newWidth;
+                item.height = newHeight;
+            }
+        }
+
+        handleMouseUp(e) {
+            if (this.isDragging || this.isResizing) {
+                if (this.currentElement) {
+                    this.currentElement.style.transition = 'all 0.3s ease';
+                    this.currentElement.style.cursor = 'grab';
+                }
+
+                this.isDragging = false;
+                this.isResizing = false;
+                this.currentElement = null;
+            }
+        }
+
+        bringToFront(element) {
+            const maxZ = Math.max(...this.currentItems.map(item => item.zIndex));
+
+            const item = this.currentItems.find(item => item.element === element);
+            if (item) {
+                item.zIndex = maxZ + 1;
+                element.style.zIndex = maxZ + 1;
+            }
+        }
+
+        clearCanvas() {
+            while (this.canvas.firstChild) {
+                this.canvas.removeChild(this.canvas.firstChild);
+            }
+
+            this.currentItems = [];
+            this.categoryCounts = {
+                upper: 0,
+                lower: 0,
+                shoes: 0,
+                accessories: 0
+            };
+
+            this.updateItemCount();
+        }
+
+        updateItemCount() {
+            const total = this.currentItems.length;
+            this.itemCount.textContent = total;
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+        window.outfitMaker = new OutfitMaker();
+    });
+</script>
+{% endblock %}
